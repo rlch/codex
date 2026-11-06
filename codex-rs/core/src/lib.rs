@@ -106,6 +106,7 @@ mod guardian;
 pub mod guardian_review;
 mod hook_environment_executor;
 mod hook_mcp_executor;
+pub use hook_mcp_executor::EmbedderHookMcpExecutor;
 mod hook_runtime;
 mod image_preparation;
 pub(crate) mod mcp;
