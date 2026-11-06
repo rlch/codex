@@ -1331,6 +1331,7 @@ async fn guardian_subagent_does_not_inherit_parent_exec_policy_rules() {
         thread_store,
         attestation_provider: None,
         external_time_provider: None,
+        hook_executor: None,
         inherited_multi_agent_version: None,
         git_enrichment_policy: GitEnrichmentPolicy::Skip,
         windows_sandbox_proxy_settings_mode:

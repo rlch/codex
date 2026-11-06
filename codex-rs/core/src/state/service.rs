@@ -101,6 +101,8 @@ pub(crate) struct SessionServices {
     pub(crate) image_store: Arc<dyn AttachmentStore>,
     pub(crate) thread_store: Arc<dyn ThreadStore>,
     pub(crate) attestation_provider: Option<Arc<dyn AttestationProvider>>,
+    /// An embedder's executor for hook MCP calls to the servers it claims; delegates inherit it.
+    pub(crate) hook_executor: Option<crate::hook_mcp_executor::EmbedderHookMcpExecutor>,
     pub(crate) time_provider: Arc<dyn TimeProvider>,
     /// Session-scoped model client shared across turns.
     pub(crate) model_client: ModelClient,

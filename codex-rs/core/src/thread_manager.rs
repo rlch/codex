@@ -21,6 +21,7 @@ use crate::config::ThreadStoreConfig;
 use crate::current_time::TimeProvider;
 use crate::environment_selection::TurnEnvironmentSnapshot;
 use crate::environment_selection::default_thread_environment_requests;
+use crate::hook_mcp_executor::EmbedderHookMcpExecutor;
 use crate::mcp::McpManager;
 use crate::rollout::truncation;
 use crate::session::ForkPersistence;
@@ -435,6 +436,7 @@ pub(crate) struct ThreadManagerState {
     agent_graph_store: Option<Arc<dyn AgentGraphStore>>,
     attestation_provider: Option<Arc<dyn AttestationProvider>>,
     external_time_provider: Option<Arc<dyn TimeProvider>>,
+    hook_executor: Option<EmbedderHookMcpExecutor>,
     session_source: SessionSource,
     installation_id: String,
     analytics_events_client: Option<AnalyticsEventsClient>,
@@ -597,6 +599,7 @@ impl ThreadManager {
                 agent_graph_store,
                 attestation_provider,
                 external_time_provider,
+                hook_executor: None,
                 auth_manager,
                 session_source,
                 installation_id,
@@ -606,6 +609,16 @@ impl ThreadManager {
             }),
             _test_codex_home_guard: None,
         }
+    }
+
+    /// Answer the hook MCP calls to `executor.servers` with the embedder's executor, in every
+    /// thread this manager starts; calls to any other server go to Codex's own.
+    pub fn with_hook_mcp_executor(mut self, executor: EmbedderHookMcpExecutor) -> Self {
+        let Some(state) = Arc::get_mut(&mut self.state) else {
+            unreachable!("hook executor must be set before thread manager is shared");
+        };
+        state.hook_executor = Some(executor);
+        self
     }
 
     /// Generate every new thread identifier with the caller-provided factory.
@@ -772,6 +785,7 @@ impl ThreadManager {
                 agent_graph_store,
                 attestation_provider: None,
                 external_time_provider: None,
+                hook_executor: None,
                 auth_manager,
                 session_source: SessionSource::Exec,
                 installation_id,
@@ -2368,6 +2382,7 @@ impl ThreadManagerState {
             thread_store: Arc::clone(&self.thread_store),
             attestation_provider: self.attestation_provider.clone(),
             external_time_provider: self.external_time_provider.clone(),
+            hook_executor: self.hook_executor.clone(),
             inherited_multi_agent_version: multi_agent_version,
             git_enrichment_policy: if matches!(
                 &tracked_session_source,

@@ -487,6 +487,8 @@ pub(crate) struct SessionSpawnArgs {
     pub(crate) thread_store: Arc<dyn ThreadStore>,
     pub(crate) attestation_provider: Option<Arc<dyn AttestationProvider>>,
     pub(crate) external_time_provider: Option<Arc<dyn TimeProvider>>,
+    /// An embedder's executor for hook MCP calls to the servers it claims.
+    pub(crate) hook_executor: Option<crate::hook_mcp_executor::EmbedderHookMcpExecutor>,
     pub(crate) inherited_multi_agent_version: Option<MultiAgentVersion>,
     pub(crate) git_enrichment_policy: GitEnrichmentPolicy,
     pub(crate) windows_sandbox_proxy_settings_mode:
@@ -596,6 +598,7 @@ impl Session {
             thread_store,
             attestation_provider,
             external_time_provider,
+            hook_executor,
             inherited_multi_agent_version,
             git_enrichment_policy,
             windows_sandbox_proxy_settings_mode,
@@ -941,6 +944,7 @@ impl Session {
             parent_rollout_thread_trace,
             attestation_provider,
             external_time_provider,
+            hook_executor,
             multi_agent_version,
             git_enrichment_policy,
             windows_sandbox_proxy_settings_mode,

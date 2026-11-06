@@ -150,6 +150,7 @@ pub(crate) async fn run_codex_thread_interactive(
         thread_store: Arc::clone(&parent_session.services.thread_store),
         attestation_provider: parent_session.services.attestation_provider.clone(),
         external_time_provider: Some(Arc::clone(&parent_session.services.time_provider)),
+        hook_executor: parent_session.services.hook_executor.clone(),
         inherited_multi_agent_version: Some(MultiAgentVersion::Disabled),
         git_enrichment_policy,
         windows_sandbox_proxy_settings_mode,

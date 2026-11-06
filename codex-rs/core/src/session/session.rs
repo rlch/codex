@@ -14,6 +14,8 @@ use crate::config::ConstraintError;
 use crate::environment_selection::ThreadEnvironments;
 use crate::environment_selection::TurnEnvironmentSnapshot;
 use crate::hook_mcp_executor::CoreHookMcpExecutor;
+use crate::hook_mcp_executor::EmbedderHookMcpExecutor;
+use crate::hook_mcp_executor::RoutingHookMcpExecutor;
 use crate::mcp_tool_call::McpToolApprovalContext;
 use crate::responses_metadata::CodexResponsesMetadata;
 use crate::responses_metadata::CodexResponsesRequestKind;
@@ -793,6 +795,7 @@ impl Session {
         parent_rollout_thread_trace: ThreadTraceContext,
         attestation_provider: Option<Arc<dyn AttestationProvider>>,
         external_time_provider: Option<Arc<dyn TimeProvider>>,
+        hook_executor: Option<EmbedderHookMcpExecutor>,
         multi_agent_version: Option<MultiAgentVersion>,
         git_enrichment_policy: GitEnrichmentPolicy,
         windows_sandbox_proxy_settings_mode: codex_sandboxing::WindowsSandboxProxySettingsMode,
@@ -1618,9 +1621,12 @@ impl Session {
             let (hooks, async_hook_results) = Hooks::new(
                 hooks_config,
                 thread_id,
-                Arc::new(CoreHookMcpExecutor {
-                    runtime: Arc::clone(&mcp_runtime),
-                    thread_id,
+                Arc::new(RoutingHookMcpExecutor {
+                    embedder: hook_executor.clone(),
+                    core: CoreHookMcpExecutor {
+                        runtime: Arc::clone(&mcp_runtime),
+                        thread_id,
+                    },
                 }),
             )?;
             for warning in hooks.startup_warnings() {
@@ -1759,6 +1765,7 @@ impl Session {
                 image_store,
                 thread_store: Arc::clone(&thread_store),
                 attestation_provider: attestation_provider.clone(),
+                hook_executor,
                 time_provider,
                 model_client: ModelClient::new(
                     Some(Arc::clone(&auth_manager)),
