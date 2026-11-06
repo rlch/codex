@@ -6,6 +6,7 @@ use crate::tools::context::ToolPayload;
 use crate::tools::context::boxed_tool_output;
 use crate::tools::handlers::parse_arguments;
 use crate::tools::handlers::resolve_tool_environment;
+use crate::tools::hook_names::HookToolName;
 use crate::tools::registry::CoreToolRuntime;
 use crate::tools::registry::PostToolUsePayload;
 use crate::tools::registry::PreToolUsePayload;
@@ -141,11 +142,43 @@ impl CoreToolRuntime for WriteStdinHandler {
         matches!(payload, ToolPayload::Function { .. })
     }
 
-    fn pre_tool_use_payload(&self, _invocation: &ToolInvocation) -> Option<PreToolUsePayload> {
-        // `write_stdin` is transport for an existing exec session. Empty writes
-        // are background polls, and non-empty writes continue a command that
-        // already ran PreToolUse as Bash, so do not emit a second pre hook here.
-        None
+    fn pre_tool_use_payload(&self, invocation: &ToolInvocation) -> Option<PreToolUsePayload> {
+        // abyme: what is typed into a terminal left open is a command of its own (a
+        // shell started by `exec_command` runs any line written to it), so a non-empty
+        // write asks PreToolUse as Bash, its input the command. Empty writes are
+        // background polls and ask nothing.
+        let ToolPayload::Function { arguments } = &invocation.payload else {
+            return None;
+        };
+        let args: WriteStdinArgs = parse_arguments(arguments).ok()?;
+        if args.chars.is_empty() {
+            return None;
+        }
+        Some(PreToolUsePayload {
+            tool_name: HookToolName::bash(),
+            tool_input: serde_json::json!({ "command": args.chars }),
+        })
+    }
+
+    fn with_updated_hook_input(
+        &self,
+        mut invocation: ToolInvocation,
+        updated_input: serde_json::Value,
+    ) -> Result<ToolInvocation, FunctionCallError> {
+        let ToolPayload::Function { arguments } = invocation.payload else {
+            return Err(FunctionCallError::RespondToModel(
+                "hook input rewrite received unsupported write_stdin payload".to_string(),
+            ));
+        };
+        invocation.payload = ToolPayload::Function {
+            arguments: crate::tools::handlers::rewrite_function_string_argument(
+                &arguments,
+                "write_stdin",
+                "chars",
+                crate::tools::handlers::updated_hook_command(&updated_input)?,
+            )?,
+        };
+        Ok(invocation)
     }
 
     fn post_tool_use_payload(

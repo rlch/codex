@@ -572,28 +572,35 @@ async fn exec_command_pre_tool_use_payload_uses_raw_command() {
 }
 
 #[tokio::test]
-async fn exec_command_pre_tool_use_payload_skips_write_stdin() {
-    let payload = ToolPayload::Function {
-        arguments: serde_json::json!({ "chars": "echo hi" }).to_string(),
-    };
+async fn write_stdin_pre_tool_use_payload_is_its_input_as_bash() {
     let (session, turn) = make_session_and_context().await;
+    let session: Arc<_> = session.into();
     let turn = Arc::new(turn);
     let handler = WriteStdinHandler;
-
-    assert_eq!(
+    let payload_for = |chars: &str| {
         handler.pre_tool_use_payload(&ToolInvocation {
-            session: session.into(),
+            session: Arc::clone(&session),
             step_context: StepContext::for_test(Arc::clone(&turn)),
-            turn,
+            turn: Arc::clone(&turn),
             cancellation_token: tokio_util::sync::CancellationToken::new(),
             tracker: Arc::new(Mutex::new(TurnDiffTracker::new())),
             call_id: "call-44".to_string(),
             tool_name: codex_tools::ToolName::plain("write_stdin"),
             source: crate::tools::context::ToolCallSource::Direct,
-            payload,
-        }),
-        None
+            payload: ToolPayload::Function {
+                arguments: serde_json::json!({ "session_id": 7, "chars": chars }).to_string(),
+            },
+        })
+    };
+
+    assert_eq!(
+        payload_for("git stash\n"),
+        Some(crate::tools::registry::PreToolUsePayload {
+            tool_name: HookToolName::bash(),
+            tool_input: serde_json::json!({ "command": "git stash\n" }),
+        })
     );
+    assert_eq!(payload_for(""), None, "a poll asks nothing");
 }
 
 #[tokio::test]
